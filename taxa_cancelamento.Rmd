@@ -2,19 +2,108 @@
 title: "Taxa de cancelamento"
 author: "José de Jesus Filho"
 date: "8/9/2017"
-output: html_document
+output:
+  html_document:
+    highlight: tango
+    theme: flatly
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r include=F}
+### Introdução
+
+No ciclo de vida da gestão de clientes,  *churn* ou cancelamento refere-se a uma decisão tomada pelo cliente sobre o fim da relação comercial.  A fidelidade  e a perda dos clientes sempre somam  100%. Se uma empresa tiver uma taxa de fidelidade de 60%, a perda ou a taxa de cancelamento dos clientes é de 40%. De acordo com a regra conhecida como  80/20 de rentabilidade dos clientes , 20% dos clientes geram 80% da receita. Por isso, é muito importante prever os usuários que podem abandonar o relacionamento comercial e os fatores que afetam as decisões do cliente. Nesta publicação, vamos mostrar como identificar o churn do cliente por meio de quatro modelos de aprendizado estatístico: regressão logística, floresta aleatória, boosting e extreme boosing.  Para tanto, usaremos uma base de dados da Telecom.
+
+
+### Instalação dos pacotes necessários
+
+```{r message=F}
 library(ggplot2)
 library(caret)
 library(doMC)
+registerDoMC(cores=2)
 library(dplyr)
 library(cowplot)
-registerDoMC(cores=2)
+library(purrr)
+library(readr)
+library(stringr)
+library(knitr)
+library(broom)
 ```
+
+## Carregar, limpar e 
+
+```{r eval=F}
+df<-read_rds()
+
+df<-df %>% map_df(~ifelse(str_detect(.x,"No"),"No",.x)) ## Alguns registros de não foram classificados como "não serviço", corrigir.
+
+df<-na.omit(df) ## Há algumas poucos missing data, corrigir.
+
+df<-as.data.frame(unclass(df)) ## Transformar as variáveis texto em fatores.
+
+df$tenure_interval<-cut(df$tenure,breaks=c(0,6,12,24,36,48,62,72),labels=c("0 - 6 months","6 - 12 months","12-24 months","24-36 months","36-48 months","48-62 months","> 62 months"))  ## A variável tenure ou permanência é numérica, fatores melhoram a performance.
+
+```
+
+```{r }
+load("base.rda")
+```
+
+
+## Divisão da base de dados em train e test para análise e validação posterior
+
+```{r eval=F}
+
+btrain<-createDataPartition(df$Churn,p=.80,list=F)
+
+train<-df[btrain,-c(1,6)]
+test<-df[-btrain,-c(1,6)]
+
+```
+
+## Estabele os parâmetros para o trainamento e sintonização (tuning) dos modelos.
+
+```{r eval=F}
+
+ctrl <- trainControl(method = "repeatedcv", # Para resampling usa validação cruzada repetica
+                     number = 10, ## Número de iterações
+                     repeats = 5, ## Número de folds a serem computados
+                     summaryFunction = twoClassSummary, ## Função para computar métricas de desempenho na validação cruzada
+                     classProbs = TRUE, ## Computa as probabilidades das classes/etiquetas
+                     savePredictions = TRUE, ## salva as predições no resampling
+                     allowParallel = TRUE, ## autoriza paralelização.
+                     sampling="down" ## Equilibra as classes para baixo
+)
+```
+
+
+## Regressão logística
+
+```{r eval=F}
+mod_GLM <- train(Churn ~ .,data=train, method="glm", family="binomial",
+                 trControl = ctrl, tuneLength = 5,
+                 metric = "ROC")
+```
+
+
+```{r}
+tab_glm<-tidy(mod_GLM$finalModel)
+kable(tab_glm)
+```
+
+
+
+#### Predição
+
+```{r eval=F}
+
+pglm<-predict(mod_GLM,test)
+ppglm<-confusionMatrix(pglm,test$Churn)
+ppglm
+```
+
 
