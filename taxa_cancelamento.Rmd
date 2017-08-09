@@ -1,0 +1,20 @@
+---
+title: "Taxa de cancelamento"
+author: "José de Jesus Filho"
+date: "8/9/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=F}
+library(ggplot2)
+library(caret)
+library(doMC)
+library(dplyr)
+library(cowplot)
+registerDoMC(cores=2)
+```
+
